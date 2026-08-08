@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e14">
+<title>DrowsyGuard — Driver Drowsiness Monitor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app" class="app">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 512 512" aria-hidden="true">
+        <path d="M60 268 C 130 176, 382 176, 452 268" fill="none" stroke="#ff9646" stroke-width="34" stroke-linecap="round"/>
+        <circle cx="256" cy="268" r="50" fill="#ff6e5a"/>
+      </svg>
+      <span>DrowsyGuard</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="nightToggle" class="icon-btn" aria-pressed="false" title="Night mode">🌙</button>
+      <button id="installBtn" class="icon-btn install-btn" hidden title="Install app">⭳ Install</button>
+    </div>
+  </header>
+
+  <!-- Status strip -->
+  <div id="connStrip" class="conn-strip online">Online</div>
+
+  <main class="main">
+
+    <!-- Camera / detection panel -->
+    <section class="panel camera-panel">
+      <div class="video-wrap" id="videoWrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div id="cameraPlaceholder" class="camera-placeholder">
+          <p>Camera preview appears here once monitoring starts.</p>
+        </div>
+        <div id="criticalOverlay" class="critical-overlay" hidden>
+          <div class="critical-message">
+            <span class="critical-icon">⚠</span>
+            <p id="criticalText">WAKE UP</p>
+            <p class="critical-sub" id="criticalSubText">விழித்திரு! நீங்கள் தூங்குகிறீர்கள்</p>
+            <button id="dismissCritical" class="btn btn-light">I'm awake — dismiss</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="score-row">
+        <div class="score-card">
+          <div class="score-label">Drowsiness score</div>
+          <div class="score-bar"><div id="scoreFill" class="score-fill"></div></div>
+          <div id="scoreValue" class="score-value">0%</div>
+        </div>
+        <div class="mini-stats">
+          <div class="mini-stat"><span id="earValue">–</span><label>EAR</label></div>
+          <div class="mini-stat"><span id="marValue">–</span><label>MAR</label></div>
+          <div class="mini-stat"><span id="perclosValue">–</span><label>PERCLOS</label></div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="startBtn" class="btn btn-primary">▶ Start Monitoring</button>
+        <button id="calibrateBtn" class="btn btn-secondary" disabled>🎯 Calibrate</button>
+        <button id="demoBtn" class="btn btn-ghost">🎬 Run Demo Scenario</button>
+        <button id="stopBtn" class="btn btn-danger" hidden>■ End Session</button>
+      </div>
+
+      <p id="statusLine" class="status-line">Tap Start Monitoring to begin. Camera access is requested only when you start.</p>
+    </section>
+
+    <!-- Calibration modal -->
+    <div id="calibrateModal" class="modal" hidden>
+      <div class="modal-card">
+        <h2>Calibrating…</h2>
+        <p>Look at the camera normally, blink naturally, for <span id="calibSecs">10</span>s.</p>
+        <div class="calib-bar"><div id="calibFill" class="calib-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Alert log -->
+    <section class="panel">
+      <h2 class="panel-title">Session timeline</h2>
+      <ul id="alertLog" class="alert-log">
+        <li class="log-empty">No events yet.</li>
+      </ul>
+    </section>
+
+    <!-- Emergency contacts -->
+    <section class="panel">
+      <h2 class="panel-title">Emergency contacts</h2>
+      <p class="panel-sub">Add 3 or more to enable auto-open of your messaging app on a critical alert. You still tap Send yourself — no site can send SMS silently on your behalf.</p>
+      <form id="contactForm" class="contact-form">
+        <input id="contactName" type="text" placeholder="Name" required>
+        <input id="contactPhone" type="tel" placeholder="Phone number" required>
+        <button type="submit" class="btn btn-secondary">Add</button>
+      </form>
+      <ul id="contactList" class="contact-list"></ul>
+      <button id="notifyNowBtn" class="btn btn-outline" disabled>Notify all contacts now</button>
+    </section>
+
+    <!-- Rest stops -->
+    <section class="panel">
+      <h2 class="panel-title">Nearby rest stops</h2>
+      <button id="findRestBtn" class="btn btn-secondary">📍 Find rest stops near me</button>
+      <ul id="restList" class="rest-list"></ul>
+    </section>
+
+    <!-- Session summary -->
+    <section id="summaryPanel" class="panel" hidden>
+      <h2 class="panel-title">Session summary</h2>
+      <div class="summary-grid">
+        <div class="summary-stat"><span id="sumScore">–</span><label>Safe-driving score</label></div>
+        <div class="summary-stat"><span id="sumMild">0</span><label>Mild alerts</label></div>
+        <div class="summary-stat"><span id="sumModerate">0</span><label>Moderate alerts</label></div>
+        <div class="summary-stat"><span id="sumCritical">0</span><label>Critical alerts</label></div>
+        <div class="summary-stat"><span id="sumDuration">–</span><label>Duration</label></div>
+      </div>
+      <button id="downloadReportBtn" class="btn btn-secondary">⬇ Download report (.txt)</button>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>On-device only. Video is never uploaded or stored. Not a certified safety device — always pull over if you feel drowsy.</p>
+  </footer>
+</div>
+
+<audio id="alertAudio" preload="auto"></audio>
+
+<!-- MediaPipe FaceMesh (loaded with crossorigin to match cache mode in sw.js) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="app.js"></script>
+</body>
+</html>
